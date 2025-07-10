@@ -60,13 +60,62 @@
       COMENTARIOS: '',
       RUT: ''
     };
-
+    campos = [
+      { label: 'MES', key: 'MES' },
+      { label: 'COM', key: 'COM' },
+      { label: 'NRO_OP', key: 'NRO_OP' },
+      { label: 'COD_SAP', key: 'COD_SAP' },
+      { label: 'STATUS', key: 'STATUS' },
+      { label: 'TIPO', key: 'TIPO' },
+      { label: 'SERVICIO', key: 'SERVICIO' },
+      { label: 'UTILIDAD', key: 'UTILIDAD' },
+      { label: 'RUC', key: 'RUC' },
+      { label: 'AGENTE', key: 'AGENTE' },
+      { label: 'SHIPPER', key: 'SHIPPER' },
+      { label: 'CONSIGNEE', key: 'CONSIGNEE' },
+      { label: 'MBL_MAWB', key: 'MBL_MAWB' },
+      { label: 'HBL_HAWB', key: 'HBL_HAWB' },
+      { label: 'ATD', key: 'ATD' },
+      { label: 'PUERTO_TRANSBORDO', key: 'PUERTO_TRANSBORDO' },
+      { label: 'FECHA_ARRIBO_TRANSBORDO', key: 'FECHA_ARRIBO_TRANSBORDO' },
+      { label: 'FECHA_SALIDA_TRANSBORDO', key: 'FECHA_SALIDA_TRANSBORDO' },
+      { label: 'NAVIERA_COLOADER', key: 'NAVIERA_COLOADER' },
+      { label: 'WEEK', key: 'WEEK' },
+      { label: 'ATA', key: 'ATA' },
+      { label: 'COND', key: 'COND' },
+      { label: 'NUMERO_CONTS', key: 'NUMERO_CONTS' },
+      { label: 'CANT', key: 'CANT' },
+      { label: 'SIZE', key: 'SIZE' },
+      { label: 'TYPE', key: 'TYPE' },
+      { label: 'KILOS', key: 'KILOS' },
+      { label: 'NAVE', key: 'NAVE' },
+      { label: 'VIAJE', key: 'VIAJE' },
+      { label: 'PUERTO_DE_EMBARQUE', key: 'PUERTO_DE_EMBARQUE' },
+      { label: 'PUERTO_DE_DESCARGA', key: 'PUERTO_DE_DESCARGA' },
+      { label: 'PUERTO_ATRAQUE', key: 'PUERTO_ATRAQUE' },
+      { label: 'DT', key: 'DT' },
+      { label: 'ADUANA_MANIF', key: 'ADUANA_MANIF' },
+      { label: 'NRO_MANIFIESTO', key: 'NRO_MANIFIESTO' },
+      { label: 'DAM', key: 'DAM' },
+      { label: 'FECHA_REGULARIZADA', key: 'FECHA_REGULARIZADA' },
+      { label: 'NRO_TICKET', key: 'NRO_TICKET' },
+      { label: 'FECHA_HORA_TRANSMISION', key: 'FECHA_HORA_TRANSMISION' },
+      { label: 'RUT', key: 'RUT' },
+      { label: 'COMENTARIOS', key: 'COMENTARIOS' },
+    ];
+    
     registros: any[] = [];
     HBL_HAWB_original: any;
     modoEdicion: boolean | undefined;
     mostrarModal: boolean | undefined;
     userProfile: any;
     userRut: any;
+    
+  filtroTexto: string = '';
+  paginaActual: number = 1;
+  registrosPorPagina: number = 50;
+  ordenColumna: string = '';
+  ordenAscendente: boolean = true;
     constructor(private http: HttpClient) {
       const user = localStorage.getItem('user');
       console.log(localStorage);
@@ -85,6 +134,8 @@ ngOnInit(): void {
   }
       this.definirColumnasPorPerfil();
       this.cargarRegistros();
+      console.log("Perfil:", this.userProfile);
+
 }
 definirColumnasPorPerfil() {
   const perfil = this.userProfile;
@@ -115,18 +166,21 @@ definirColumnasPorPerfil() {
 
   if (perfil === 'Administrador') this.columnasVisibles = todas;
   else if (perfil === 'Aduanero') this.columnasVisibles = aduanero;
-  else if (perfil === 'Empresas') this.columnasVisibles = empresas;
+  else if (perfil === 'Empresa') this.columnasVisibles = empresas;
 }
     cargarRegistros() {
       this.http.get<any>(`${this.apiUrl}?action=list`).subscribe(response => {
-        console.log(this.userProfile);
+        console.log("carga" +this.userProfile);
+
         if (response.success) {
-          if (this.userProfile === 'Empresas') {
+
+          if (this.userProfile === 'Empresa') {
+            console.log(localStorage.getItem('user'));
             const user = JSON.parse(localStorage.getItem('user')!);
             const rutUsuario = user.rut;
-    
+            console.log("usuario 1: " + user.nombre_usuario);
             // Mostrar solo registros que coinciden con su RUT
-            this.registros = response.data.filter((reg: any) => reg.RUT === rutUsuario);
+            this.registros = response.data.filter((reg: any) => reg.RUC  === user.nombre_usuario);
           } else {
             console.log("else")
             this.registros = response.data;
@@ -136,15 +190,19 @@ definirColumnasPorPerfil() {
         }
       });
     }
-    cargarEnFormulario(reg: any) {
-      console.log("entro");
-      if (this.userProfile !== 'Administrador') return;
-    console.log("entro 2")
+    cargarEnFormulario(reg: any): void {
+      console.log("Abriendo modal para:", this.userProfile);
       this.carga = { ...reg };
-      this.HBL_HAWB_original = reg.HBL_HAWB;
-      this.modoEdicion = true;
+    
+      if (this.userProfile === 'Administrador') {
+        this.HBL_HAWB_original = reg.HBL_HAWB;
+        this.modoEdicion = true;
+      }
+    
       this.mostrarModal = true;
     }
+    
+    
     
     cerrarModal() {
       this.mostrarModal = false;
@@ -173,4 +231,72 @@ definirColumnasPorPerfil() {
     
       } 
     }
+    registrosFiltradosPaginados() {
+      let datos = [...this.registros];
+    
+      // Filtro
+      if (this.filtroTexto.trim()) {
+        const filtro = this.filtroTexto.toLowerCase();
+        datos = datos.filter(reg =>
+          Object.values(reg).some(val => val?.toString().toLowerCase().includes(filtro))
+        );
+      }
+    
+      // Orden
+      if (this.ordenColumna) {
+        datos.sort((a, b) => {
+          const aVal = a[this.ordenColumna];
+          const bVal = b[this.ordenColumna];
+          return this.ordenAscendente
+            ? aVal > bVal ? 1 : -1
+            : aVal < bVal ? 1 : -1;
+        });
+      }
+    
+      // Paginación
+      const inicio = (this.paginaActual - 1) * this.registrosPorPagina;
+      return datos.slice(inicio, inicio + this.registrosPorPagina);
+    }
+    
+    ordenarPor(columna: string) {
+      if (this.ordenColumna === columna) {
+        this.ordenAscendente = !this.ordenAscendente;
+      } else {
+        this.ordenColumna = columna;
+        this.ordenAscendente = true;
+      }
+    } 
+    totalPaginas(): number[] {
+      const total = Math.ceil(this.registros.length / this.registrosPorPagina);
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    exportarDatosFiltradosCSV() {
+      const datos = this.registrosFiltradosPaginados();
+    
+      if (!datos.length) {
+        alert("No hay datos para exportar.");
+        return;
+      }
+    
+      const columnas = Object.keys(datos[0]);
+    
+      const csvContent = [
+        columnas.join(','), // Cabecera
+        ...datos.map(row => columnas.map(col => `"${(row[col] ?? '').toString().replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+    
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+    
+      const a = document.createElement('a');
+      a.href = url;
+      const ahora = new Date();
+      const timestamp = ahora.toISOString().replace(/[:.]/g, '-');
+      a.download = `registros_filtrados_${timestamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    
+    
   }
